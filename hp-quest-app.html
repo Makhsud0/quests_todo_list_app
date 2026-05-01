@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>QuestHP — Система Квестов</title>
+  <style>
+    /* =============================================
+       ПЕРЕМЕННЫЕ И БАЗОВЫЕ СТИЛИ
+    ============================================= */
+    :root {
+      --bg-primary: #0f0f14;
+      --bg-secondary: #16161e;
+      --bg-card: #1c1c27;
+      --bg-card-hover: #22223a;
+      --accent: #7c6af7;
+      --accent-2: #f76a8a;
+      --accent-3: #6af7c4;
+      --text-primary: #e8e8f0;
+      --text-secondary: #8888a8;
+      --text-muted: #55556a;
+      --border: rgba(124, 106, 247, 0.15);
+      --border-bright: rgba(124, 106, 247, 0.4);
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+      --shadow-accent: 0 4px 24px rgba(124, 106, 247, 0.25);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --nav-height: 72px;
+      --status-bar: env(safe-area-inset-top, 0px);
+      --bottom-safe: env(safe-area-inset-bottom, 0px);
+      --font-main: 'SF Pro Display', -apple-system, 'Helvetica Neue', sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      font-size: 16px;
+      line-height: 1.5;
+      user-select: none;
+    }
+
+    /* =============================================
+       СТРУКТУРА ПРИЛОЖЕНИЯ
+    ============================================= */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: 480px;
+      margin: 0 auto;
+      background: var(--bg-primary);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Шапка */
+    .app-header {
+      padding: calc(var(--status-bar) + 16px) 20px 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      backdrop-filter: blur(20px);
+      z-index: 10;
+    }
+
+    .app-header .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .app-header .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: var(--shadow-accent);
+    }
+
+    .app-header .logo-text {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 40%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hp-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(124, 106, 247, 0.12);
+      border: 1px solid var(--border-bright);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .hp-badge span { color: var(--text-primary); }
+
+    /* Контент вкладок */
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: calc(var(--nav-height) + var(--bottom-safe) + 8px);
+    }
+
+    #content::-webkit-scrollbar { display: none; }
+
+    /* Вкладки */
+    .tab {
+      display: none;
+      padding: 20px 16px;
+      animation: tabIn 0.3s ease;
+    }
+
+    .tab.active { display: block; }
+
+    @keyframes tabIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* =============================================
+       НИЖНЯЯ НАВИГАЦИЯ
+    ============================================= */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      height: calc(var(--nav-height) + var(--bottom-safe));
+      padding-bottom: var(--bottom-safe);
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-around;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+    }
+
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 4px 6px;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      min-height: var(--nav-height);
+    }
+
+    .nav-item.active {
+      color: var(--accent);
+    }
+
+    .nav-item .nav-icon {
+      font-size: 22px;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .nav-item.active .nav-icon {
+      transform: scale(1.15);
+    }
+
+    .nav-item:active .nav-icon {
+      transform: scale(0.9);
+    }
+
+    .nav-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      transition: color 0.2s;
+    }
+
+    .nav-dot {
+      position: absolute;
+      top: 8px;
+      width: 28px;
+      height: 3px;
+      background: var(--accent);
+      border-radius: 2px;
+      opacity: 0;
+      transform: scaleX(0);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .nav-item.active .nav-dot {
+      opacity: 1;
+      transform: scaleX(1);
+    }
+
+    /* =============================================
+       КАРТОЧКИ
+    ============================================= */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 3px;
+      height: 100%;
+      background: linear-gradient(to bottom, var(--accent), var(--accent-2));
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .card:active {
+      background: var(--bg-card-hover);
+      transform: scale(0.99);
+    }
+
+    .card.highlight::before { opacity: 1; }
+
+    /* Карточка квеста/товара */
+    .item-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .item-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: rgba(124, 106, 247, 0.1);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-title {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-type-tag {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--accent);
+      background: rgba(124, 106, 247, 0.12);
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    .item-hp {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .hp-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent-3);
+      font-family: var(--font-mono);
+    }
+
+    .hp-value.cost {
+      color: var(--accent-2);
+    }
+
+    .hp-unit {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Кнопки действий на карточке */
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 8px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-action:active { transform: scale(0.96); }
+
+    .btn-complete {
+      background: rgba(106, 247, 196, 0.12);
+      color: var(--accent-3);
+      border: 1px solid rgba(106, 247, 196, 0.25);
+    }
+
+    .btn-buy {
+      background: rgba(247, 106, 138, 0.12);
+      color: var(--accent-2);
+      border: 1px solid rgba(247, 106, 138, 0.25);
+    }
+
+    .btn-delete {
+      flex: 0;
+      padding: 8px 12px;
+      background: rgba(255, 80, 80, 0.08);
+      color: #ff5050;
+      border: 1px solid rgba(255, 80, 80, 0.2);
+    }
+
+    /* =============================================
+       КНОПКА ДОБАВИТЬ
+    ============================================= */
+    .add-btn {
+      width: 100%;
+      padding: 16px;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, var(--accent), #6045e8);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 32px rgba(124, 106, 247, 0.35);
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      letter-spacing: 0.2px;
+    }
+
+    .add-btn:active {
+      transform: scale(0.97);
+      box-shadow: 0 4px 16px rgba(124, 106, 247, 0.2);
+    }
+
+    .add-btn .plus {
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    /* =============================================
+       СТАТУС / ДАШБОРД
+    ============================================= */
+    .status-hero {
+      background: linear-gradient(135deg, #1a1632 0%, #1c1c27 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .status-hero::after {
+      content: '⚡';
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 64px;
+      opacity: 0.06;
+    }
+
+    .status-hero-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .status-hero-hp {
+      font-size: 48px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      background: linear-gradient(135deg, var(--accent), var(--accent-3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .status-hero-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+
+    .stat-value.earned { color: var(--accent-3); }
+    .stat-value.spent { color: var(--accent-2); }
+    .stat-value.quests { color: var(--accent); }
+    .stat-value.shop { color: #f7c56a; }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-state .empty-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+    }
+
+    /* =============================================
+       ИСТОРИЯ
+    ============================================= */
+    .history-summary {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .history-card-big {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+    }
+
+    .history-card-big .icon { font-size: 28px; margin-bottom: 8px; }
+    .history-card-big .val {
+      font-size: 24px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+    }
+    .history-card-big .lbl { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+    }
+
+    .history-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .history-icon.earned { background: rgba(106, 247, 196, 0.1); }
+    .history-icon.spent { background: rgba(247, 106, 138, 0.1); }
+
+    .history-info { flex: 1; min-width: 0; }
+    .history-name {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-date { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    .history-amount {
+      font-size: 16px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+    }
+
+    .history-amount.earned { color: var(--accent-3); }
+    .history-amount.spent { color: var(--accent-2); }
+
+    /* =============================================
+       ПРОФИЛЬ
+    ============================================= */
+    .profile-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      margin: 0 auto 16px;
+      box-shadow: 0 8px 32px rgba(124, 106, 247, 0.3);
+    }
+
+    .profile-name {
+      text-align: center;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .profile-subtitle {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .profile-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .profile-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .profile-row:last-child { border-bottom: none; }
+    .profile-row:active { background: var(--bg-card-hover); }
+
+    .profile-row-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .profile-row-icon.purple { background: rgba(124, 106, 247, 0.15); }
+    .profile-row-icon.red { background: rgba(255, 80, 80, 0.1); }
+
+    .profile-row-text { flex: 1; }
+    .profile-row-title { font-size: 15px; font-weight: 500; }
+    .profile-row-sub { font-size: 12px; color: var(--text-muted); }
+    .profile-row-arrow { color: var(--text-muted); font-size: 18px; }
+
+    .btn-danger {
+      width: 100%;
+      padding: 16px;
+      border-radius: var(--radius);
+      background: rgba(255, 80, 80, 0.08);
+      color: #ff5050;
+      font-size: 15px;
+      font-weight: 600;
+      border: 1px solid rgba(255, 80, 80, 0.2);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-danger:active {
+      background: rgba(255, 80, 80, 0.15);
+      transform: scale(0.98);
+    }
+
+    /* =============================================
+       МОДАЛЬНОЕ ОКНО
+    ============================================= */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      background: var(--bg-secondary);
+      border-radius: 24px 24px 0 0;
+      padding: 12px 20px calc(20px + var(--bottom-safe));
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+      max-height: 90dvh;
+      overflow-y: auto;
+    }
+
+    .modal-overlay.open .modal {
+      transform: translateY(0);
+    }
+
+    .modal-handle {
+      width: 36px;
+      height: 4px;
+      background: var(--text-muted);
+      border-radius: 2px;
+      margin: 0 auto 20px;
+      opacity: 0.5;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    /* Форма */
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-family: var(--font-main);
+      outline: none;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--accent);
+    }
+
+    .form-input::placeholder { color: var(--text-muted); }
+
+    select.form-input {
+      cursor: pointer;
+    }
+
+    /* Выбор иконки */
+    .emoji-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+    }
+
+    .emoji-btn {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 8px;
+      background: var(--bg-card);
+      border: 2px solid transparent;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      -webkit-appearance: none;
+    }
+
+    .emoji-btn:active { transform: scale(0.9); }
+    .emoji-btn.selected {
+      border-color: var(--accent);
+      background: rgba(124, 106, 247, 0.15);
+    }
+
+    .form-submit {
+      width: 100%;
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, var(--accent), #6045e8);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.2s;
+      box-shadow: 0 4px 16px rgba(124, 106, 247, 0.3);
+    }
+
+    .form-submit:active {
+      transform: scale(0.98);
+      box-shadow: none;
+    }
+
+    /* =============================================
+       ТОСТ
+    ============================================= */
+    .toast {
+      position: fixed;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: var(--bg-card);
+      border: 1px solid var(--border-bright);
+      border-radius: 20px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      white-space: nowrap;
+      box-shadow: var(--shadow);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* =============================================
+       ПРОГРЕСС-БАРЫ И ТЕГИ
+    ============================================= */
+    .progress-bar {
+      height: 4px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(to right, var(--accent), var(--accent-3));
+      border-radius: 2px;
+      transition: width 0.5s ease;
+    }
+
+    /* Мини-квесты в статусе */
+    .mini-quest {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+    }
+
+    .mini-quest-icon { font-size: 20px; }
+    .mini-quest-name {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mini-quest-hp {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-3);
+      font-family: var(--font-mono);
+    }
+
+    /* Разделитель */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+
+    /* Версия */
+    .version-tag {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 16px 0 8px;
+    }
+
+    /* Анимация пульса для HP */
+    @keyframes pulse-glow {
+      0%, 100% { text-shadow: 0 0 20px rgba(124, 106, 247, 0.3); }
+      50% { text-shadow: 0 0 40px rgba(124, 106, 247, 0.6); }
+    }
+
+    .status-hero-hp { animation: pulse-glow 3s ease-in-out infinite; }
+
+    /* =============================================
+       АДАПТИВНОСТЬ
+    ============================================= */
+    @media (min-width: 481px) {
+      #app {
+        box-shadow: 0 0 60px rgba(0,0,0,0.8);
+        border-radius: 0;
+      }
+      .modal { border-radius: 24px; margin-bottom: 40px; }
+      .modal-overlay { align-items: center; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Шапка -->
+  <header class="app-header">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <span class="logo-text">QuestHP</span>
+    </div>
+    <div class="hp-badge">
+      ⚡ <span id="header-hp">0</span> HP
+    </div>
+  </header>
+
+  <!-- Основной контент -->
+  <main id="content">
+
+    <!-- === ВКЛАДКА: СТАТУС === -->
+    <section class="tab active" id="tab-status">
+      <div class="status-hero">
+        <div class="status-hero-label">Текущий баланс</div>
+        <div class="status-hero-hp" id="status-balance">0</div>
+        <div class="status-hero-sub">⚡ Health Points</div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Заработано</div>
+          <div class="stat-value earned" id="stat-earned">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Потрачено</div>
+          <div class="stat-value spent" id="stat-spent">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Квестов</div>
+          <div class="stat-value quests" id="stat-quests">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Покупок</div>
+          <div class="stat-value shop" id="stat-purchases">0</div>
+        </div>
+      </div>
+
+      <div class="section-title">Активные квесты</div>
+      <div id="active-quests-preview"></div>
+    </section>
+
+    <!-- === ВКЛАДКА: КВЕСТЫ === -->
+    <section class="tab" id="tab-quests">
+      <button class="add-btn" onclick="openModal('quest')">
+        <span class="plus">＋</span> Добавить квест
+      </button>
+      <div id="quests-list"></div>
+    </section>
+
+    <!-- === ВКЛАДКА: МАГАЗИН === -->
+    <section class="tab" id="tab-shop">
+      <button class="add-btn" onclick="openModal('shop')">
+        <span class="plus">＋</span> Добавить товар
+      </button>
+      <div id="shop-list"></div>
+    </section>
+
+    <!-- === ВКЛАДКА: ИСТОРИЯ === -->
+    <section class="tab" id="tab-history">
+      <div class="history-summary">
+        <div class="history-card-big">
+          <div class="icon">🏆</div>
+          <div class="val" style="color:var(--accent-3)" id="hist-total-earned">0</div>
+          <div class="lbl">HP получено</div>
+        </div>
+        <div class="history-card-big">
+          <div class="icon">🛍️</div>
+          <div class="val" style="color:var(--accent-2)" id="hist-total-spent">0</div>
+          <div class="lbl">HP потрачено</div>
+        </div>
+      </div>
+      <div class="section-title">Все операции</div>
+      <div id="history-list"></div>
+    </section>
+
+    <!-- === ВКЛАДКА: ПРОФИЛЬ === -->
+    <section class="tab" id="tab-profile">
+      <div class="profile-avatar">🧙</div>
+      <div class="profile-name">Искатель Приключений</div>
+      <div class="profile-subtitle">Уровень новичка · 0 квестов завершено</div>
+
+      <div class="profile-section">
+        <div class="profile-row" onclick="showToast('🔐 Авторизация пока недоступна')">
+          <div class="profile-row-icon purple">🔑</div>
+          <div class="profile-row-text">
+            <div class="profile-row-title">Авторизация</div>
+            <div class="profile-row-sub">Войти через Telegram</div>
+          </div>
+          <div class="profile-row-arrow">›</div>
+        </div>
+        <div class="profile-row" onclick="showToast('📊 Статистика скоро')">
+          <div class="profile-row-icon purple">📊</div>
+          <div class="profile-row-text">
+            <div class="profile-row-title">Подробная статистика</div>
+            <div class="profile-row-sub">Анализ прогресса</div>
+          </div>
+          <div class="profile-row-arrow">›</div>
+        </div>
+        <div class="profile-row" onclick="showToast('🎨 Темы скоро')">
+          <div class="profile-row-icon purple">🎨</div>
+          <div class="profile-row-text">
+            <div class="profile-row-title">Тема оформления</div>
+            <div class="profile-row-sub">Тёмная (по умолчанию)</div>
+          </div>
+          <div class="profile-row-arrow">›</div>
+        </div>
+      </div>
+
+      <button class="btn-danger" onclick="confirmReset()">
+        🗑️ Обнулить прогресс
+      </button>
+
+      <div class="version-tag">QuestHP v1.0 · Сделано с ❤️</div>
+    </section>
+
+  </main>
+
+  <!-- Нижняя навигация -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-tab="status" onclick="switchTab('status')">
+      <div class="nav-dot"></div>
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">Статус</span>
+    </button>
+    <button class="nav-item" data-tab="quests" onclick="switchTab('quests')">
+      <div class="nav-dot"></div>
+      <span class="nav-icon">⚔️</span>
+      <span class="nav-label">Квесты</span>
+    </button>
+    <button class="nav-item" data-tab="shop" onclick="switchTab('shop')">
+      <div class="nav-dot"></div>
+      <span class="nav-icon">🛍️</span>
+      <span class="nav-label">Магазин</span>
+    </button>
+    <button class="nav-item" data-tab="history" onclick="switchTab('history')">
+      <div class="nav-dot"></div>
+      <span class="nav-icon">📜</span>
+      <span class="nav-label">История</span>
+    </button>
+    <button class="nav-item" data-tab="profile" onclick="switchTab('profile')">
+      <div class="nav-dot"></div>
+      <span class="nav-icon">👤</span>
+      <span class="nav-label">Профиль</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- =============================================
+     МОДАЛЬНОЕ ОКНО (КВЕСТ / ТОВАР)
+============================================= -->
+<div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title">Новый квест</div>
+
+    <div class="form-group">
+      <label class="form-label">Название</label>
+      <input class="form-input" id="form-name" type="text" placeholder="Название квеста..." />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Описание</label>
+      <input class="form-input" id="form-desc" type="text" placeholder="Краткое описание..." />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Тип</label>
+      <select class="form-input" id="form-type">
+        <!-- Варианты меняются динамически -->
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" id="form-hp-label">HP за выполнение</label>
+      <input class="form-input" id="form-hp" type="number" min="1" placeholder="100" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Иконка</label>
+      <div class="emoji-grid" id="emoji-grid"></div>
+    </div>
+
+    <button class="form-submit" id="form-submit-btn" onclick="submitForm()">✓ Создать</button>
+  </div>
+</div>
+
+<!-- Тост-уведомление -->
+<div class="toast" id="toast"></div>
+
+<script>
+  /* =============================================
+     КОНФИГУРАЦИЯ EMOJI
+  ============================================= */
+  const QUEST_EMOJIS = ['⚔️','🗡️','🏹','🧙','🛡️','🔥','💪','🧠','📚','🎯','🏋️','🚀','⭐','🌟','💡','🎮','🏆','🎪','🌙','☀️','🧩','🎲','🏃','🤸'];
+  const SHOP_EMOJIS  = ['🛍️','🎁','🍕','☕','🎬','🎵','👟','👜','🎮','📱','💻','🌮','🍦','🚗','✈️','🏖️','🎭','🎨','📚','🍔','🍣','🥗','🎯','💎'];
+
+  const QUEST_TYPES = ['Ежедневное','Еженедельное','Разовое','Вызов','Привычка'];
+  const SHOP_TYPES  = ['Развлечения','Еда','Одежда','Техника','Отдых','Здоровье','Другое'];
+
+  /* =============================================
+     ХРАНИЛИЩЕ ДАННЫХ (localStorage)
+  ============================================= */
+  let data = {
+    quests:    [],   // Активные квесты
+    shop:      [],   // Товары в магазине
+    history:   [],   // История транзакций
+    balance:   0,    // Текущий баланс HP
+    totalEarned: 0,  // Всего заработано
+    totalSpent:  0,  // Всего потрачено
+  };
+
+  /** Загрузить данные из localStorage */
+  function loadData() {
+    const saved = localStorage.getItem('questhp_data');
+    if (saved) {
+      try { data = JSON.parse(saved); }
+      catch(e) { console.warn('Ошибка загрузки данных'); }
+    }
+  }
+
+  /** Сохранить данные в localStorage */
+  function saveData() {
+    localStorage.setItem('questhp_data', JSON.stringify(data));
+  }
+
+  /* =============================================
+     НАВИГАЦИЯ
+  ============================================= */
+  let currentTab = 'status';
+
+  /** Переключить вкладку */
+  function switchTab(tab) {
+    // Скрыть текущую вкладку
+    document.querySelector(`#tab-${currentTab}`).classList.remove('active');
+    document.querySelector(`.nav-item[data-tab="${currentTab}"]`).classList.remove('active');
+
+    // Показать новую
+    currentTab = tab;
+    document.querySelector(`#tab-${tab}`).classList.add('active');
+    document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
+
+    // Прокрутить вверх
+    document.getElementById('content').scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Обновить контент вкладки
+    renderCurrentTab();
+  }
+
+  /** Отрисовать текущую вкладку */
+  function renderCurrentTab() {
+    if (currentTab === 'status')  renderStatus();
+    if (currentTab === 'quests')  renderQuests();
+    if (currentTab === 'shop')    renderShop();
+    if (currentTab === 'history') renderHistory();
+    if (currentTab === 'profile') renderProfile();
+    updateHeader();
+  }
+
+  /* =============================================
+     ШАПКА
+  ============================================= */
+  function updateHeader() {
+    document.getElementById('header-hp').textContent = data.balance;
+  }
+
+  /* =============================================
+     ВКЛАДКА: СТАТУС
+  ============================================= */
+  function renderStatus() {
+    document.getElementById('status-balance').textContent = data.balance;
+    document.getElementById('stat-earned').textContent    = data.totalEarned;
+    document.getElementById('stat-spent').textContent     = data.totalSpent;
+    document.getElementById('stat-quests').textContent    = data.history.filter(h => h.type === 'quest').length;
+    document.getElementById('stat-purchases').textContent = data.history.filter(h => h.type === 'shop').length;
+
+    // Мини-превью активных квестов
+    const container = document.getElementById('active-quests-preview');
+    if (data.quests.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺️</div><p>Нет активных квестов.<br>Добавь первый!</p></div>`;
+    } else {
+      container.innerHTML = data.quests.slice(0, 3).map(q => `
+        <div class="mini-quest">
+          <span class="mini-quest-icon">${q.icon}</span>
+          <span class="mini-quest-name">${escHtml(q.name)}</span>
+          <span class="mini-quest-hp">+${q.hp} HP</span>
+        </div>
+      `).join('');
+      if (data.quests.length > 3) {
+        container.innerHTML += `<p style="text-align:center;font-size:13px;color:var(--text-muted);margin-top:8px">И ещё ${data.quests.length - 3} квестов</p>`;
+      }
+    }
+  }
+
+  /* =============================================
+     ВКЛАДКА: КВЕСТЫ
+  ============================================= */
+  function renderQuests() {
+    const container = document.getElementById('quests-list');
+    if (data.quests.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚔️</div><p>Пока нет квестов.<br>Добавь свой первый!</p></div>`;
+      return;
+    }
+    container.innerHTML = data.quests.map((q, i) => `
+      <div class="card highlight">
+        <div class="item-card">
+          <div class="item-icon">${q.icon}</div>
+          <div class="item-info">
+            <div class="item-title">${escHtml(q.name)}</div>
+            <div class="item-desc">${escHtml(q.desc)}</div>
+            <span class="item-type-tag">${escHtml(q.qtype)}</span>
+          </div>
+          <div class="item-hp">
+            <div class="hp-value">+${q.hp}</div>
+            <div class="hp-unit">HP</div>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="btn-action btn-complete" onclick="completeQuest(${i})">✓ Выполнен</button>
+          <button class="btn-action btn-delete" onclick="deleteQuest(${i})">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  /** Завершить квест — начислить HP */
+  function completeQuest(index) {
+    const quest = data.quests[index];
+    data.balance += quest.hp;
+    data.totalEarned += quest.hp;
+    data.history.unshift({
+      type: 'quest',
+      name: quest.name,
+      icon: quest.icon,
+      amount: quest.hp,
+      date: new Date().toLocaleDateString('ru-RU', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })
+    });
+    data.quests.splice(index, 1);
+    saveData();
+    renderQuests();
+    updateHeader();
+    showToast(`⚡ +${quest.hp} HP получено!`);
+  }
+
+  /** Удалить квест без выполнения */
+  function deleteQuest(index) {
+    data.quests.splice(index, 1);
+    saveData();
+    renderQuests();
+    showToast('🗑️ Квест удалён');
+  }
+
+  /* =============================================
+     ВКЛАДКА: МАГАЗИН
+  ============================================= */
+  function renderShop() {
+    const container = document.getElementById('shop-list');
+    if (data.shop.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">🛍️</div><p>Магазин пуст.<br>Добавь первый товар!</p></div>`;
+      return;
+    }
+    container.innerHTML = data.shop.map((item, i) => `
+      <div class="card highlight">
+        <div class="item-card">
+          <div class="item-icon">${item.icon}</div>
+          <div class="item-info">
+            <div class="item-title">${escHtml(item.name)}</div>
+            <div class="item-desc">${escHtml(item.desc)}</div>
+            <span class="item-type-tag">${escHtml(item.itype)}</span>
+          </div>
+          <div class="item-hp">
+            <div class="hp-value cost">-${item.hp}</div>
+            <div class="hp-unit">HP</div>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="btn-action btn-buy" onclick="buyItem(${i})">🛒 Купить</button>
+          <button class="btn-action btn-delete" onclick="deleteItem(${i})">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  /** Купить товар — списать HP */
+  function buyItem(index) {
+    const item = data.shop[index];
+    if (data.balance < item.hp) {
+      showToast('❌ Недостаточно HP!');
+      return;
+    }
+    data.balance -= item.hp;
+    data.totalSpent += item.hp;
+    data.history.unshift({
+      type: 'shop',
+      name: item.name,
+      icon: item.icon,
+      amount: item.hp,
+      date: new Date().toLocaleDateString('ru-RU', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })
+    });
+    saveData();
+    renderShop();
+    updateHeader();
+    showToast(`🛍️ Куплено за ${item.hp} HP!`);
+  }
+
+  /** Удалить товар из магазина */
+  function deleteItem(index) {
+    data.shop.splice(index, 1);
+    saveData();
+    renderShop();
+    showToast('🗑️ Товар удалён');
+  }
+
+  /* =============================================
+     ВКЛАДКА: ИСТОРИЯ
+  ============================================= */
+  function renderHistory() {
+    document.getElementById('hist-total-earned').textContent = data.totalEarned;
+    document.getElementById('hist-total-spent').textContent  = data.totalSpent;
+
+    const container = document.getElementById('history-list');
+    if (data.history.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">📜</div><p>История пуста.<br>Выполни квест или сделай покупку!</p></div>`;
+      return;
+    }
+    container.innerHTML = data.history.map(h => {
+      const isEarned = h.type === 'quest';
+      return `
+        <div class="history-item">
+          <div class="history-icon ${isEarned ? 'earned' : 'spent'}">${h.icon}</div>
+          <div class="history-info">
+            <div class="history-name">${escHtml(h.name)}</div>
+            <div class="history-date">${h.date}</div>
+          </div>
+          <div class="history-amount ${isEarned ? 'earned' : 'spent'}">
+            ${isEarned ? '+' : '-'}${h.amount} HP
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  /* =============================================
+     ВКЛАДКА: ПРОФИЛЬ
+  ============================================= */
+  function renderProfile() {
+    const completed = data.history.filter(h => h.type === 'quest').length;
+    const level = completed < 5 ? 'Новичок' : completed < 20 ? 'Искатель' : completed < 50 ? 'Ветеран' : 'Легенда';
+    document.querySelector('.profile-subtitle').textContent = `${level} · ${completed} квестов завершено`;
+  }
+
+  /** Подтверждение сброса данных */
+  function confirmReset() {
+    if (confirm('⚠️ Обнулить весь прогресс? Это действие необратимо.')) {
+      data = { quests: [], shop: [], history: [], balance: 0, totalEarned: 0, totalSpent: 0 };
+      saveData();
+      renderCurrentTab();
+      showToast('🔄 Прогресс сброшен');
+    }
+  }
+
+  /* =============================================
+     МОДАЛЬНОЕ ОКНО
+  ============================================= */
+  let modalMode = 'quest';   // 'quest' | 'shop'
+  let selectedEmoji = '⚔️'; // Выбранный emoji
+
+  /** Открыть модальное окно */
+  function openModal(mode) {
+    modalMode = mode;
+    selectedEmoji = mode === 'quest' ? '⚔️' : '🛍️';
+
+    // Заголовок и метки
+    document.getElementById('modal-title').textContent   = mode === 'quest' ? 'Новый квест' : 'Новый товар';
+    document.getElementById('form-hp-label').textContent = mode === 'quest' ? 'HP за выполнение' : 'Стоимость в HP';
+    document.getElementById('form-name').placeholder     = mode === 'quest' ? 'Название квеста...' : 'Название товара...';
+
+    // Сбросить форму
+    document.getElementById('form-name').value = '';
+    document.getElementById('form-desc').value = '';
+    document.getElementById('form-hp').value   = '';
+
+    // Типы
+    const types = mode === 'quest' ? QUEST_TYPES : SHOP_TYPES;
+    document.getElementById('form-type').innerHTML = types.map(t => `<option>${t}</option>`).join('');
+
+    // Emoji-сетка
+    const emojis = mode === 'quest' ? QUEST_EMOJIS : SHOP_EMOJIS;
+    document.getElementById('emoji-grid').innerHTML = emojis.map(e => `
+      <button class="emoji-btn ${e === selectedEmoji ? 'selected' : ''}" onclick="selectEmoji('${e}', this)">${e}</button>
+    `).join('');
+
+    // Показать оверлей
+    document.getElementById('modal-overlay').classList.add('open');
+    setTimeout(() => document.getElementById('form-name').focus(), 400);
+  }
+
+  /** Закрыть модальное окно */
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+
+  /** Клик по оверлею (закрыть, если вне модалки) */
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  }
+
+  /** Выбрать emoji */
+  function selectEmoji(emoji, btn) {
+    selectedEmoji = emoji;
+    document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  }
+
+  /** Отправить форму */
+  function submitForm() {
+    const name  = document.getElementById('form-name').value.trim();
+    const desc  = document.getElementById('form-desc').value.trim();
+    const type  = document.getElementById('form-type').value;
+    const hp    = parseInt(document.getElementById('form-hp').value);
+
+    if (!name) { showToast('⚠️ Введи название'); return; }
+    if (!hp || hp < 1) { showToast('⚠️ Введи количество HP'); return; }
+
+    if (modalMode === 'quest') {
+      data.quests.push({ name, desc, qtype: type, hp, icon: selectedEmoji });
+    } else {
+      data.shop.push({ name, desc, itype: type, hp, icon: selectedEmoji });
+    }
+
+    saveData();
+    closeModal();
+    renderCurrentTab();
+    showToast(modalMode === 'quest' ? '⚔️ Квест создан!' : '🛍️ Товар добавлен!');
+  }
+
+  /* =============================================
+     ТОСТ-УВЕДОМЛЕНИЕ
+  ============================================= */
+  let toastTimer = null;
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
+  /* =============================================
+     УТИЛИТЫ
+  ============================================= */
+  /** Экранирование HTML */
+  function escHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* =============================================
+     ИНИЦИАЛИЗАЦИЯ
+  ============================================= */
+  function init() {
+    loadData();
+    renderCurrentTab();
+
+    // Enter в форме — отправить
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+      if (e.key === 'Enter' && document.getElementById('modal-overlay').classList.contains('open')) {
+        submitForm();
+      }
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>
